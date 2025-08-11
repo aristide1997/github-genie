@@ -56,12 +56,17 @@ Always provide comprehensive answers with code examples when relevant.""",
 
 
 @github_genie.tool
-async def clone_repository(ctx: RunContext[GenieDependencies], repo_url: str) -> str:
+async def clone_repository(
+    ctx: RunContext[GenieDependencies], 
+    repo_url: str, 
+    fast_clone: bool = True
+) -> str:
     """Clone a repository and return the local path.
     
     Args:
         ctx: The context.
         repo_url: The GitHub repository URL to clone.
+        fast_clone: If True, use shallow clone (depth=1) and single branch for faster cloning.
     """
     logger.info(f"🔧 TOOL: clone_repository(repo_url='{repo_url}')")
     try:
@@ -75,15 +80,40 @@ async def clone_repository(ctx: RunContext[GenieDependencies], repo_url: str) ->
         
         repo_path = os.path.join(temp_dir, repo_name)
         
-        # Clone the repository
+        # Clone the repository (disable LFS filters entirely to avoid requiring git-lfs)
+        # Also ensure the command is fully non-interactive.
+        lfs_skip_env = {
+            **os.environ,
+            'GIT_LFS_SKIP_SMUDGE': '1',  # Do not smudge/download LFS files
+            'GIT_LFS_SKIP': '1',         # Additional safeguard
+            'GIT_TERMINAL_PROMPT': '0',  # Never prompt for credentials
+        }
+
+        # Build clone command with temporary git config overrides placed BEFORE the subcommand
+        # to completely disable LFS filters for this invocation
+        clone_cmd = [
+            'git',
+            '-c', 'filter.lfs.smudge=',
+            '-c', 'filter.lfs.process=',
+            '-c', 'filter.lfs.clean=',
+            '-c', 'filter.lfs.required=false',
+            'clone',
+        ]
+        if fast_clone:
+            # Shallow and partial clone to speed up and reduce data transfer
+            clone_cmd.extend(['--depth=1', '--single-branch', '--no-tags', '--filter=blob:none'])
+        clone_cmd.extend([repo_url, repo_path])
+        
         result = subprocess.run(
-            ['git', 'clone', repo_url, repo_path],
+            clone_cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=60,  # 5 minute timeout
+            env=lfs_skip_env
         )
         
         if result.returncode != 0:
+            logger.error(f"Git clone failed for {repo_url}: {result.stderr}")
             return f"Failed to clone repository: {result.stderr}"
         
         # Store the repo path in dependencies
@@ -92,8 +122,10 @@ async def clone_repository(ctx: RunContext[GenieDependencies], repo_url: str) ->
         return f"Successfully cloned repository to: {repo_path}"
         
     except subprocess.TimeoutExpired:
-        return "Repository cloning timed out (5 minutes). The repository might be too large."
+        logger.error(f"Clone timeout for {repo_url}")
+        return "Repository cloning timed out (5 minutes). The repository might be too large or network is slow."
     except Exception as e:
+        logger.error(f"Clone exception for {repo_url}: {str(e)}")
         return f"Error cloning repository: {str(e)}"
 
 
@@ -108,6 +140,7 @@ async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path
     logger.info(f"🔧 TOOL: get_repository_structure(repo_path='{repo_path}')")
     try:
         if not os.path.exists(repo_path):
+            logger.error(f"Repository path not found: {repo_path}")
             return f"Repository path does not exist: {repo_path}"
         
         structure_info = []
@@ -168,6 +201,7 @@ async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path
         return "\n".join(structure_info)
         
     except Exception as e:
+        logger.error(f"Repository structure analysis failed for {repo_path}: {str(e)}")
         return f"Error analyzing repository structure: {str(e)}"
 
 
@@ -187,9 +221,11 @@ async def list_directory_contents(
     logger.info(f"🔧 TOOL: list_directory_contents(directory_path='{directory_path}', filter_pattern={filter_pattern})")
     try:
         if not os.path.exists(directory_path):
+            logger.warning(f"Directory not found: {directory_path}")
             return f"Directory does not exist: {directory_path}"
         
         if not os.path.isdir(directory_path):
+            logger.warning(f"Path is not a directory: {directory_path}")
             return f"Path is not a directory: {directory_path}"
         
         items = []
@@ -236,6 +272,7 @@ async def list_directory_contents(
         return result
         
     except Exception as e:
+        logger.error(f"Directory listing failed for {directory_path}: {str(e)}")
         return f"Error listing directory contents: {str(e)}"
 
 
@@ -250,14 +287,17 @@ async def read_file_content(ctx: RunContext[GenieDependencies], file_path: str) 
     logger.info(f"🔧 TOOL: read_file_content(file_path='{file_path}')")
     try:
         if not os.path.exists(file_path):
+            logger.warning(f"File not found: {file_path}")
             return f"File does not exist: {file_path}"
         
         if not os.path.isfile(file_path):
+            logger.warning(f"Path is not a file: {file_path}")
             return f"Path is not a file: {file_path}"
         
         # Check file size to avoid reading very large files
         file_size = os.path.getsize(file_path)
         if file_size > 1024 * 1024:  # > 1MB
+            logger.warning(f"File too large to read: {file_path} ({file_size / (1024 * 1024):.1f}MB)")
             return f"File too large to read ({file_size / (1024 * 1024):.1f}MB): {file_path}"
         
         # Try to read as text
@@ -273,6 +313,7 @@ async def read_file_content(ctx: RunContext[GenieDependencies], file_path: str) 
                 continue
         
         if content is None:
+            logger.warning(f"Could not decode file as text: {file_path}")
             return f"Could not decode file as text: {file_path}"
         
         # Truncate very long content for display
@@ -283,6 +324,7 @@ async def read_file_content(ctx: RunContext[GenieDependencies], file_path: str) 
         return f"File: {file_path}\n\n{content}"
         
     except Exception as e:
+        logger.error(f"File reading failed for {file_path}: {str(e)}")
         return f"Error reading file: {str(e)}"
 
 
@@ -305,6 +347,7 @@ async def search_in_files(
     try:
         search_dir = directory_path or ctx.deps.current_repo_path
         if not search_dir or not os.path.exists(search_dir):
+            logger.error(f"Invalid search directory: {search_dir}")
             return f"Invalid search directory: {search_dir}"
         
         pattern = re.compile(search_pattern, re.IGNORECASE | re.MULTILINE)
@@ -396,6 +439,7 @@ async def search_in_files(
         return "\n".join(result)
         
     except Exception as e:
+        logger.error(f"File search failed in {search_dir}: {str(e)}")
         return f"Error searching files: {str(e)}"
 
 

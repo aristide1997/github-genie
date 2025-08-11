@@ -32,7 +32,7 @@ class GenieDependencies:
 
 # Create the GitHub Genie agent
 github_genie = Agent(
-    'openai:gpt-5-nano',
+    'openai:gpt-5-mini',
     deps_type=GenieDependencies,
     system_prompt="""You are GitHub Genie, a code analysis agent that helps users understand repositories.
 
@@ -47,8 +47,14 @@ Be thorough in your analysis but efficient - don't read unnecessary files. Focus
 Use the tools strategically:
 - Start with repository structure to get context
 - Use list_directory_contents to explore specific directories
-- Use read_file_content to examine relevant files
+- Use read_file_content to examine files (defaults to first 200 lines with line numbers)
+  - For specific sections: read_file_content(file_path, line_start=100, line_end=200)
+  - For entire file: read_file_content(file_path, line_end=None)
 - Use search_in_files when looking for specific patterns or functionality
+
+When using search_in_files, be careful with regex patterns:
+- Escape special characters like parentheses: use 'function_name\\(' instead of 'function_name('
+- For simple text searches, avoid regex special characters
 
 Always provide comprehensive answers with code examples when relevant.""",
     retries=2,
@@ -220,6 +226,13 @@ async def list_directory_contents(
     """
     logger.info(f"🔧 TOOL: list_directory_contents(directory_path='{directory_path}', filter_pattern={filter_pattern})")
     try:
+        # Parameter validation
+        if not isinstance(directory_path, str) or not directory_path.strip():
+            logger.error(f"Invalid directory_path parameter: {directory_path}")
+            return f"Error: directory_path must be a non-empty string"
+        
+        directory_path = directory_path.strip()
+        
         if not os.path.exists(directory_path):
             logger.warning(f"Directory not found: {directory_path}")
             return f"Directory does not exist: {directory_path}"
@@ -229,7 +242,19 @@ async def list_directory_contents(
             return f"Path is not a directory: {directory_path}"
         
         items = []
-        pattern = re.compile(filter_pattern) if filter_pattern else None
+        pattern = None
+        
+        # Validate filter pattern if provided
+        if filter_pattern:
+            if not isinstance(filter_pattern, str):
+                logger.error(f"Invalid filter_pattern parameter: {filter_pattern}")
+                return f"Error: filter_pattern must be a string"
+            
+            try:
+                pattern = re.compile(filter_pattern.strip())
+            except re.error as regex_err:
+                logger.error(f"Invalid regex in filter_pattern '{filter_pattern}': {regex_err}")
+                return f"Error: Invalid regex pattern in filter_pattern: {regex_err}"
         
         for item in sorted(os.listdir(directory_path)):
             # Skip hidden files starting with . unless specifically requested
@@ -277,15 +302,37 @@ async def list_directory_contents(
 
 
 @github_genie.tool
-async def read_file_content(ctx: RunContext[GenieDependencies], file_path: str) -> str:
-    """Read file contents.
+async def read_file_content(
+    ctx: RunContext[GenieDependencies], 
+    file_path: str, 
+    line_start: int = 1, 
+    line_end: int = 200
+) -> str:
+    """Read file contents with line numbers (defaults to first 200 lines).
     
     Args:
         ctx: The context.
         file_path: Path to the file to read.
+        line_start: Starting line number (1-indexed, default: 1).
+        line_end: Ending line number (1-indexed, default: 200). Use None to read entire file.
     """
-    logger.info(f"🔧 TOOL: read_file_content(file_path='{file_path}')")
+    logger.info(f"🔧 TOOL: read_file_content(file_path='{file_path}', line_start={line_start}, line_end={line_end})")
     try:
+        # Parameter validation
+        if not isinstance(file_path, str) or not file_path.strip():
+            logger.error(f"Invalid file_path parameter: {file_path}")
+            return f"Error: file_path must be a non-empty string"
+        
+        if not isinstance(line_start, int) or line_start < 1:
+            logger.error(f"Invalid line_start parameter: {line_start}")
+            return f"Error: line_start must be a positive integer"
+        
+        if line_end is not None and (not isinstance(line_end, int) or line_end < line_start):
+            logger.error(f"Invalid line_end parameter: {line_end}")
+            return f"Error: line_end must be None or an integer >= line_start"
+        
+        file_path = file_path.strip()
+        
         if not os.path.exists(file_path):
             logger.warning(f"File not found: {file_path}")
             return f"File does not exist: {file_path}"
@@ -296,32 +343,58 @@ async def read_file_content(ctx: RunContext[GenieDependencies], file_path: str) 
         
         # Check file size to avoid reading very large files
         file_size = os.path.getsize(file_path)
-        if file_size > 1024 * 1024:  # > 1MB
+        if file_size > 10 * 1024 * 1024:  # > 10MB
             logger.warning(f"File too large to read: {file_path} ({file_size / (1024 * 1024):.1f}MB)")
             return f"File too large to read ({file_size / (1024 * 1024):.1f}MB): {file_path}"
         
         # Try to read as text
         encodings = ['utf-8', 'latin-1', 'cp1252']
-        content = None
+        lines = None
         
         for encoding in encodings:
             try:
                 with open(file_path, 'r', encoding=encoding) as f:
-                    content = f.read()
+                    lines = f.readlines()
                 break
             except UnicodeDecodeError:
                 continue
         
-        if content is None:
+        if lines is None:
             logger.warning(f"Could not decode file as text: {file_path}")
             return f"Could not decode file as text: {file_path}"
         
-        # Truncate very long content for display
-        if len(content) > 10000:
-            truncated_content = content[:10000] + f"\n\n... (truncated, total length: {len(content)} characters)"
-            return f"File: {file_path}\n\n{truncated_content}"
+        total_lines = len(lines)
         
-        return f"File: {file_path}\n\n{content}"
+        # Adjust line numbers (convert to 0-indexed)
+        start_idx = line_start - 1
+        end_idx = (line_end - 1) if line_end is not None else total_lines - 1
+        
+        # Validate line ranges
+        if start_idx >= total_lines:
+            return f"Error: line_start ({line_start}) exceeds file length ({total_lines} lines)"
+        
+        if end_idx >= total_lines:
+            end_idx = total_lines - 1
+            if line_end is not None:
+                logger.warning(f"line_end adjusted to file length: {total_lines}")
+        
+        # Extract the requested lines
+        selected_lines = lines[start_idx:end_idx + 1]
+        
+        # Add line numbers for context
+        numbered_lines = []
+        for i, line in enumerate(selected_lines, start=line_start):
+            numbered_lines.append(f"{i:4d}: {line.rstrip()}")
+        
+        actual_end = start_idx + len(selected_lines)
+        result = f"File: {file_path} (lines {line_start}-{actual_end}, total file lines: {total_lines})\n\n"
+        result += '\n'.join(numbered_lines)
+        
+        # Add note if file was truncated
+        if line_end is not None and actual_end < total_lines:
+            result += f"\n\n... (showing lines {line_start}-{actual_end} of {total_lines} total lines)"
+        
+        return result
         
     except Exception as e:
         logger.error(f"File reading failed for {file_path}: {str(e)}")
@@ -345,12 +418,25 @@ async def search_in_files(
     """
     logger.info(f"🔧 TOOL: search_in_files(search_pattern='{search_pattern}', directory_path={directory_path}, file_extensions={file_extensions})")
     try:
+        # Parameter validation
+        if not isinstance(search_pattern, str) or not search_pattern.strip():
+            logger.error(f"Invalid search_pattern parameter: {search_pattern}")
+            return f"Error: search_pattern must be a non-empty string"
+        
+        search_pattern = search_pattern.strip()
+        
         search_dir = directory_path or ctx.deps.current_repo_path
         if not search_dir or not os.path.exists(search_dir):
             logger.error(f"Invalid search directory: {search_dir}")
             return f"Invalid search directory: {search_dir}"
         
-        pattern = re.compile(search_pattern, re.IGNORECASE | re.MULTILINE)
+        # Validate regex pattern
+        try:
+            pattern = re.compile(search_pattern, re.IGNORECASE | re.MULTILINE)
+        except re.error as regex_err:
+            logger.error(f"Invalid regex pattern '{search_pattern}': {regex_err}")
+            return f"Error: Invalid regex pattern '{search_pattern}': {regex_err}"
+        
         matches = []
         files_searched = 0
         
@@ -468,12 +554,8 @@ async def ask_genie(question: str) -> str:
 async def main():
     """Example usage of the GitHub Genie."""
     # Example question
-    # question = """
-    # Repository: https://github.com/pydantic/pydantic-ai
-    # Question: How does the agent system work? What are the main components and how do they interact?
-    # """
     question = """
-    Repository: https://github.com/cline/cline
+    Repository: https://github.com/pydantic/pydantic-ai
     Question: How does the agent system work? What are the main components and how do they interact?
     """
     

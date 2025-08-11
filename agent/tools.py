@@ -1,28 +1,17 @@
-"""GitHub Genie - A pydantic-ai agent for analyzing GitHub repositories.
+"""Tools for GitHub Genie agent."""
 
-This agent can clone repositories, understand their structure, and answer questions about the codebase.
-Similar to cursor/cline but as an agent that can be queried programmatically.
-"""
-
-import asyncio
 import logging
 import os
 import re
-import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
 
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import RunContext
 
 # Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('github_genie')
+logger = logging.getLogger('github_genie.tools')
+
 
 @dataclass
 class GenieDependencies:
@@ -30,38 +19,6 @@ class GenieDependencies:
     current_repo_path: str | None = None
 
 
-# Create the GitHub Genie agent
-github_genie = Agent(
-    'openai:gpt-5-mini',
-    deps_type=GenieDependencies,
-    system_prompt="""You are GitHub Genie, a code analysis agent that helps users understand repositories.
-
-When a user provides a repository URL and asks questions about it:
-1. Extract the repo URL from their query
-2. Clone the repository using the clone_repository tool
-3. Analyze the structure using get_repository_structure to understand the project
-4. Use your tools to explore files and find answers to the user's specific questions
-5. Provide detailed, helpful responses about the codebase
-
-Be thorough in your analysis but efficient - don't read unnecessary files. Focus on answering the specific question asked.
-Use the tools strategically:
-- Start with repository structure to get context
-- Use list_directory_contents to explore specific directories
-- Use read_file_content to examine files (defaults to first 200 lines with line numbers)
-  - For specific sections: read_file_content(file_path, line_start=100, line_end=200)
-  - For entire file: read_file_content(file_path, line_end=None)
-- Use search_in_files when looking for specific patterns or functionality
-
-When using search_in_files, be careful with regex patterns:
-- Escape special characters like parentheses: use 'function_name\\(' instead of 'function_name('
-- For simple text searches, avoid regex special characters
-
-Always provide comprehensive answers with code examples when relevant.""",
-    retries=2,
-)
-
-
-@github_genie.tool
 async def clone_repository(
     ctx: RunContext[GenieDependencies], 
     repo_url: str, 
@@ -135,7 +92,6 @@ async def clone_repository(
         return f"Error cloning repository: {str(e)}"
 
 
-@github_genie.tool
 async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path: str) -> str:
     """Get high-level repository structure and identify key files.
     
@@ -211,7 +167,6 @@ async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path
         return f"Error analyzing repository structure: {str(e)}"
 
 
-@github_genie.tool
 async def list_directory_contents(
     ctx: RunContext[GenieDependencies], 
     directory_path: str, 
@@ -301,7 +256,6 @@ async def list_directory_contents(
         return f"Error listing directory contents: {str(e)}"
 
 
-@github_genie.tool
 async def read_file_content(
     ctx: RunContext[GenieDependencies], 
     file_path: str, 
@@ -401,7 +355,6 @@ async def read_file_content(
         return f"Error reading file: {str(e)}"
 
 
-@github_genie.tool
 async def search_in_files(
     ctx: RunContext[GenieDependencies], 
     search_pattern: str, 
@@ -527,43 +480,3 @@ async def search_in_files(
     except Exception as e:
         logger.error(f"File search failed in {search_dir}: {str(e)}")
         return f"Error searching files: {str(e)}"
-
-
-async def ask_genie(question: str) -> str:
-    """Main function to ask the GitHub Genie a question about a repository.
-    
-    Args:
-        question: Question that should include a repository URL and the actual question.
-    
-    Returns:
-        The agent's response as a string.
-    """
-    deps = GenieDependencies()
-    result = await github_genie.run(question, deps=deps)
-    
-    # Clean up temporary directory if it was created
-    if deps.current_repo_path and os.path.exists(deps.current_repo_path):
-        try:
-            shutil.rmtree(os.path.dirname(deps.current_repo_path))
-        except Exception:
-            pass  # Ignore cleanup errors
-    
-    return result.data
-
-
-async def main():
-    """Example usage of the GitHub Genie."""
-    # Example question
-    question = """
-    Repository: https://github.com/pydantic/pydantic-ai
-    Question: How does the agent system work? What are the main components and how do they interact?
-    """
-    
-    print("Asking GitHub Genie...")
-    response = await ask_genie(question)
-    print("\nResponse:")
-    print(response)
-
-
-if __name__ == '__main__':
-    asyncio.run(main())

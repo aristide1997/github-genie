@@ -5,7 +5,7 @@ to test the GitHub Genie functionality with different repositories and use cases
 """
 
 import asyncio
-from github_genie import ask_genie
+from agent import ask_genie
 
 
 async def test_cline_agent_system():

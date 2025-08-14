@@ -5,6 +5,12 @@ to test the GitHub Genie functionality with different repositories and use cases
 """
 
 import asyncio
+import sys
+import os
+
+# Add parent directory to Python path so we can import from agent module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from agent import ask_genie
 
 

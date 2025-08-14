@@ -68,7 +68,7 @@ class PydanticAIAgentExecutor(AgentExecutor):
 
             # Create dependencies with A2A progress reporter
             from agent.dependencies import GenieDependencies
-            from a2a_progress_reporter import A2AProgressReporter
+            from .progress_reporter import A2AProgressReporter
             
             progress_reporter = A2AProgressReporter(updater)
             deps = GenieDependencies(progress_reporter=progress_reporter)

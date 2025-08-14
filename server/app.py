@@ -10,7 +10,7 @@ from a2a.types import (
     AgentCard,
     AgentSkill,
 )
-from a2a_executor import PydanticAIAgentExecutor
+from .executor import PydanticAIAgentExecutor
 
 # Set up logging
 logging.basicConfig(

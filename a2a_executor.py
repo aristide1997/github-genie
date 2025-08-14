@@ -66,8 +66,15 @@ class PydanticAIAgentExecutor(AgentExecutor):
 
             logger.info(f"Processing question for session {context_id}: {question[:100]}...")
 
-            # Call the existing GitHub Genie agent
-            response = await ask_genie(question)
+            # Create dependencies with A2A progress reporter
+            from agent.dependencies import GenieDependencies
+            from a2a_progress_reporter import A2AProgressReporter
+            
+            progress_reporter = A2AProgressReporter(updater)
+            deps = GenieDependencies(progress_reporter=progress_reporter)
+            
+            # Call the existing GitHub Genie agent with A2A-enabled dependencies
+            response = await ask_genie(question, deps=deps)
 
             logger.info(f"GitHub Genie response received for session {context_id}")
 

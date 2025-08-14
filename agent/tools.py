@@ -1,22 +1,18 @@
 """Tools for GitHub Genie agent."""
 
+import asyncio
 import logging
 import os
 import re
 import subprocess
 import tempfile
-from dataclasses import dataclass
 
 from pydantic_ai import RunContext
 
+from .dependencies import GenieDependencies
+
 # Set up logging
 logger = logging.getLogger('github_genie.tools')
-
-
-@dataclass
-class GenieDependencies:
-    """Essential state for the GitHub Genie agent."""
-    current_repo_path: str | None = None
 
 
 async def clone_repository(
@@ -32,6 +28,11 @@ async def clone_repository(
         fast_clone: If True, use shallow clone (depth=1) and single branch for faster cloning.
     """
     logger.info(f"🔧 TOOL: clone_repository(repo_url='{repo_url}')")
+    
+    # Report progress if available
+    if ctx.deps.progress_reporter:
+        await ctx.deps.progress_reporter.report_progress(f"🔧 Cloning repository: {repo_url}")
+    
     try:
         # Create a temporary directory for the repo
         temp_dir = tempfile.mkdtemp(prefix="github_genie_")
@@ -67,24 +68,29 @@ async def clone_repository(
             clone_cmd.extend(['--depth=1', '--single-branch', '--no-tags', '--filter=blob:none'])
         clone_cmd.extend([repo_url, repo_path])
         
-        result = subprocess.run(
-            clone_cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,  # 5 minute timeout
+        # Use async subprocess to avoid blocking the event loop
+        process = await asyncio.create_subprocess_exec(
+            *clone_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             env=lfs_skip_env
         )
         
-        if result.returncode != 0:
-            logger.error(f"Git clone failed for {repo_url}: {result.stderr}")
-            return f"Failed to clone repository: {result.stderr}"
+        # Wait for completion with timeout (5 minutes)
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
+        stdout = stdout.decode('utf-8') if stdout else ''
+        stderr = stderr.decode('utf-8') if stderr else ''
+        
+        if process.returncode != 0:
+            logger.error(f"Git clone failed for {repo_url}: {stderr}")
+            return f"Failed to clone repository: {stderr}"
         
         # Store the repo path in dependencies
         ctx.deps.current_repo_path = repo_path
         
         return f"Successfully cloned repository to: {repo_path}"
         
-    except subprocess.TimeoutExpired:
+    except asyncio.TimeoutError:
         logger.error(f"Clone timeout for {repo_url}")
         return "Repository cloning timed out (5 minutes). The repository might be too large or network is slow."
     except Exception as e:
@@ -100,6 +106,11 @@ async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path
         repo_path: Path to the cloned repository.
     """
     logger.info(f"🔧 TOOL: get_repository_structure(repo_path='{repo_path}')")
+    
+    # Report progress if available
+    if ctx.deps.progress_reporter:
+        await ctx.deps.progress_reporter.report_progress("🔧 Analyzing repository structure...")
+    
     try:
         if not os.path.exists(repo_path):
             logger.error(f"Repository path not found: {repo_path}")
@@ -180,6 +191,12 @@ async def list_directory_contents(
         filter_pattern: Optional regex pattern to filter files/directories.
     """
     logger.info(f"🔧 TOOL: list_directory_contents(directory_path='{directory_path}', filter_pattern={filter_pattern})")
+    
+    # Report progress if available
+    if ctx.deps.progress_reporter:
+        dir_name = os.path.basename(directory_path) or directory_path
+        await ctx.deps.progress_reporter.report_progress(f"🔧 Exploring directory: {dir_name}")
+    
     try:
         # Parameter validation
         if not isinstance(directory_path, str) or not directory_path.strip():
@@ -271,6 +288,12 @@ async def read_file_content(
         line_end: Ending line number (1-indexed, default: 200). Use None to read entire file.
     """
     logger.info(f"🔧 TOOL: read_file_content(file_path='{file_path}', line_start={line_start}, line_end={line_end})")
+    
+    # Report progress if available
+    if ctx.deps.progress_reporter:
+        file_name = os.path.basename(file_path) or file_path
+        await ctx.deps.progress_reporter.report_progress(f"🔧 Reading file: {file_name}")
+    
     try:
         # Parameter validation
         if not isinstance(file_path, str) or not file_path.strip():
@@ -370,6 +393,11 @@ async def search_in_files(
         file_extensions: List of file extensions to search (e.g., ['.py', '.js']).
     """
     logger.info(f"🔧 TOOL: search_in_files(search_pattern='{search_pattern}', directory_path={directory_path}, file_extensions={file_extensions})")
+    
+    # Report progress if available
+    if ctx.deps.progress_reporter:
+        await ctx.deps.progress_reporter.report_progress(f"🔧 Searching for pattern: {search_pattern}")
+    
     try:
         # Parameter validation
         if not isinstance(search_pattern, str) or not search_pattern.strip():

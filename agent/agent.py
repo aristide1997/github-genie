@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pydantic_ai import Agent
 
 from . import tools
-from .tools import GenieDependencies
+from .dependencies import GenieDependencies
 
 # Set up logging
 logging.basicConfig(
@@ -25,8 +25,8 @@ logger = logging.getLogger('github_genie')
 
 # Create the GitHub Genie agent
 github_genie = Agent(
-    # 'openai:gpt-5-nano',
-    'google-gla:gemini-2.5-flash',
+    'openai:gpt-5-nano',
+    # 'google-gla:gemini-2.5-flash',
     deps_type=GenieDependencies,
     system_prompt=
 f"""You are GitHub Genie, a code analysis agent that helps users understand repositories.
@@ -63,16 +63,19 @@ Always provide comprehensive answers with code examples when relevant.""",
 )
 
 
-async def ask_genie(question: str) -> str:
+async def ask_genie(question: str, deps: GenieDependencies = None) -> str:
     """Main function to ask the GitHub Genie a question about a repository.
     
     Args:
         question: Question that should include a repository URL and the actual question.
+        deps: Optional dependencies. If not provided, creates default dependencies.
     
     Returns:
         The agent's response as a string.
     """
-    deps = GenieDependencies()
+    if deps is None:
+        deps = GenieDependencies()
+    
     result = await github_genie.run(question, deps=deps)
     
     # Clean up temporary directory if it was created

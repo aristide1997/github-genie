@@ -159,6 +159,31 @@ We're implementing a medical chatbot where:
     print(response)
     return response
 
+# TODO: Add tools for git commands
+async def test_git_commands():
+    """Test git command functionality."""
+    question = """
+    Repository: https://github.com/pydantic/pydantic-ai
+    
+    I want to test the git command functionality. Please:
+    
+    1. Clone the repository 
+    2. Use git commands to analyze the repository:
+       - Show git status
+       - Show the last 5 commits with --oneline format
+       - Show all available branches
+       - Show details of the latest commit
+       - Show a diff of the latest commit
+    
+    Question: What can you tell me about this repository's git history and structure using the git commands?
+    """
+    
+    print("Testing git command functionality...")
+    response = await ask_genie(question)
+    print("\nResponse:")
+    print(response)
+    return response
+
 
 async def run_all_tests():
     """Run all test cases."""
@@ -169,6 +194,7 @@ async def run_all_tests():
     tests = [
         ("Cline Agent System", test_cline_agent_system),
         ("Pydantic-AI Graph Persistence", test_pydantic_graph_persistence),
+        ("Git Commands", test_git_commands),
     ]
     
     results = {}
@@ -208,12 +234,15 @@ async def main():
             await test_cline_agent_system()
         elif test_name == "persistence":
             await test_pydantic_graph_persistence()
+        elif test_name == "git":
+            await test_git_commands()
         elif test_name == "all":
             await run_all_tests()
         else:
             print("Available tests:")
             print("  python test.py cline          - Test Cline agent system")
             print("  python test.py persistence     - Test pydantic-ai persistence")
+            print("  python test.py git            - Test git commands functionality")
             print("  python test.py all            - Run all tests")
     else:
         print("GitHub Genie Test Cases")
@@ -221,6 +250,7 @@ async def main():
         print("Available tests:")
         print("  python test.py cline          - Test Cline agent system")
         print("  python test.py persistence     - Test pydantic-ai persistence")
+        print("  python test.py git            - Test git commands functionality")
         print("  python test.py all            - Run all tests")
 
 

@@ -26,6 +26,7 @@ logger = logging.getLogger('github_genie')
 # Create the GitHub Genie agent
 github_genie = Agent(
     'openai:gpt-5-nano',
+    # 'openai:gpt-4.1-nano',
     # 'google-gla:gemini-2.5-flash',
     deps_type=GenieDependencies,
     system_prompt=

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import shlex
 import subprocess
 import tempfile
 
@@ -180,38 +181,48 @@ async def get_repository_structure(ctx: RunContext[GenieDependencies], repo_path
 
 async def list_directory_contents(
     ctx: RunContext[GenieDependencies], 
-    directory_path: str, 
+    directory_path: str = None, 
     filter_pattern: str = None
 ) -> str:
     """List files and directories with optional filtering.
     
     Args:
         ctx: The context.
-        directory_path: Path to the directory to list.
+        directory_path: Path to the directory to list. If None, '.' or empty, defaults to current repo path.
         filter_pattern: Optional regex pattern to filter files/directories.
     """
     logger.info(f"🔧 TOOL: list_directory_contents(directory_path='{directory_path}', filter_pattern={filter_pattern})")
     
-    # Report progress if available
-    if ctx.deps.progress_reporter:
-        dir_name = os.path.basename(directory_path) or directory_path
-        await ctx.deps.progress_reporter.report_progress(f"🔧 Exploring directory: {dir_name}")
-    
     try:
-        # Parameter validation
-        if not isinstance(directory_path, str) or not directory_path.strip():
-            logger.error(f"Invalid directory_path parameter: {directory_path}")
-            return f"Error: directory_path must be a non-empty string"
+        # Resolve directory path - default to current repo path if not specified or relative
+        if not directory_path or directory_path.strip() in ['', '.']:
+            target_dir = ctx.deps.current_repo_path
+            if not target_dir:
+                logger.error("No directory specified and no repository cloned")
+                return "Error: No directory specified and no repository available. Clone a repository first."
+        else:
+            directory_path = directory_path.strip()
+            if os.path.isabs(directory_path):
+                target_dir = directory_path
+            else:
+                # Relative path - resolve relative to current repo
+                if not ctx.deps.current_repo_path:
+                    logger.error("Relative path provided but no repository cloned")
+                    return "Error: Relative path provided but no repository available. Clone a repository first."
+                target_dir = os.path.join(ctx.deps.current_repo_path, directory_path)
         
-        directory_path = directory_path.strip()
+        # Report progress if available
+        if ctx.deps.progress_reporter:
+            dir_name = os.path.basename(target_dir) or target_dir
+            await ctx.deps.progress_reporter.report_progress(f"🔧 Exploring directory: {dir_name}")
         
-        if not os.path.exists(directory_path):
-            logger.warning(f"Directory not found: {directory_path}")
-            return f"Directory does not exist: {directory_path}"
+        if not os.path.exists(target_dir):
+            logger.warning(f"Directory not found: {target_dir}")
+            return f"Directory does not exist: {target_dir}"
         
-        if not os.path.isdir(directory_path):
-            logger.warning(f"Path is not a directory: {directory_path}")
-            return f"Path is not a directory: {directory_path}"
+        if not os.path.isdir(target_dir):
+            logger.warning(f"Path is not a directory: {target_dir}")
+            return f"Path is not a directory: {target_dir}"
         
         items = []
         pattern = None
@@ -228,7 +239,7 @@ async def list_directory_contents(
                 logger.error(f"Invalid regex in filter_pattern '{filter_pattern}': {regex_err}")
                 return f"Error: Invalid regex pattern in filter_pattern: {regex_err}"
         
-        for item in sorted(os.listdir(directory_path)):
+        for item in sorted(os.listdir(target_dir)):
             # Skip hidden files starting with . unless specifically requested
             if item.startswith('.') and (not filter_pattern or not pattern.search(item)):
                 continue
@@ -236,7 +247,7 @@ async def list_directory_contents(
             if pattern and not pattern.search(item):
                 continue
             
-            item_path = os.path.join(directory_path, item)
+            item_path = os.path.join(target_dir, item)
             
             if os.path.isdir(item_path):
                 try:
@@ -259,9 +270,9 @@ async def list_directory_contents(
                     items.append(f"📄 {item}")
         
         if not items:
-            return f"No items found in {directory_path}" + (f" matching pattern '{filter_pattern}'" if filter_pattern else "")
+            return f"No items found in {target_dir}" + (f" matching pattern '{filter_pattern}'" if filter_pattern else "")
         
-        result = f"Contents of {directory_path}:"
+        result = f"Contents of {target_dir}:"
         if filter_pattern:
             result += f" (filtered by '{filter_pattern}')"
         result += f"\n" + "\n".join(items)
@@ -269,7 +280,7 @@ async def list_directory_contents(
         return result
         
     except Exception as e:
-        logger.error(f"Directory listing failed for {directory_path}: {str(e)}")
+        logger.error(f"Directory listing failed for {target_dir}: {str(e)}")
         return f"Error listing directory contents: {str(e)}"
 
 
@@ -283,16 +294,11 @@ async def read_file_content(
     
     Args:
         ctx: The context.
-        file_path: Path to the file to read.
+        file_path: Path to the file to read. Relative paths are resolved relative to current repo.
         line_start: Starting line number (1-indexed, default: 1).
         line_end: Ending line number (1-indexed, default: 200). Use None to read entire file.
     """
     logger.info(f"🔧 TOOL: read_file_content(file_path='{file_path}', line_start={line_start}, line_end={line_end})")
-    
-    # Report progress if available
-    if ctx.deps.progress_reporter:
-        file_name = os.path.basename(file_path) or file_path
-        await ctx.deps.progress_reporter.report_progress(f"🔧 Reading file: {file_name}")
     
     try:
         # Parameter validation
@@ -310,19 +316,34 @@ async def read_file_content(
         
         file_path = file_path.strip()
         
-        if not os.path.exists(file_path):
-            logger.warning(f"File not found: {file_path}")
-            return f"File does not exist: {file_path}"
+        # Resolve file path - handle relative paths relative to current repo
+        if os.path.isabs(file_path):
+            target_file = file_path
+        else:
+            # Relative path - resolve relative to current repo
+            if not ctx.deps.current_repo_path:
+                logger.error("Relative path provided but no repository cloned")
+                return "Error: Relative path provided but no repository available. Clone a repository first."
+            target_file = os.path.join(ctx.deps.current_repo_path, file_path)
         
-        if not os.path.isfile(file_path):
-            logger.warning(f"Path is not a file: {file_path}")
-            return f"Path is not a file: {file_path}"
+        # Report progress if available
+        if ctx.deps.progress_reporter:
+            file_name = os.path.basename(target_file) or target_file
+            await ctx.deps.progress_reporter.report_progress(f"🔧 Reading file: {file_name}")
+        
+        if not os.path.exists(target_file):
+            logger.warning(f"File not found: {target_file}")
+            return f"File does not exist: {target_file}"
+        
+        if not os.path.isfile(target_file):
+            logger.warning(f"Path is not a file: {target_file}")
+            return f"Path is not a file: {target_file}"
         
         # Check file size to avoid reading very large files
-        file_size = os.path.getsize(file_path)
+        file_size = os.path.getsize(target_file)
         if file_size > 10 * 1024 * 1024:  # > 10MB
-            logger.warning(f"File too large to read: {file_path} ({file_size / (1024 * 1024):.1f}MB)")
-            return f"File too large to read ({file_size / (1024 * 1024):.1f}MB): {file_path}"
+            logger.warning(f"File too large to read: {target_file} ({file_size / (1024 * 1024):.1f}MB)")
+            return f"File too large to read ({file_size / (1024 * 1024):.1f}MB): {target_file}"
         
         # Try to read as text
         encodings = ['utf-8', 'latin-1', 'cp1252']
@@ -330,15 +351,15 @@ async def read_file_content(
         
         for encoding in encodings:
             try:
-                with open(file_path, 'r', encoding=encoding) as f:
+                with open(target_file, 'r', encoding=encoding) as f:
                     lines = f.readlines()
                 break
             except UnicodeDecodeError:
                 continue
         
         if lines is None:
-            logger.warning(f"Could not decode file as text: {file_path}")
-            return f"Could not decode file as text: {file_path}"
+            logger.warning(f"Could not decode file as text: {target_file}")
+            return f"Could not decode file as text: {target_file}"
         
         total_lines = len(lines)
         
@@ -364,7 +385,7 @@ async def read_file_content(
             numbered_lines.append(f"{i:4d}: {line.rstrip()}")
         
         actual_end = start_idx + len(selected_lines)
-        result = f"File: {file_path} (lines {line_start}-{actual_end}, total file lines: {total_lines})\n\n"
+        result = f"File: {target_file} (lines {line_start}-{actual_end}, total file lines: {total_lines})\n\n"
         result += '\n'.join(numbered_lines)
         
         # Add note if file was truncated
@@ -374,7 +395,7 @@ async def read_file_content(
         return result
         
     except Exception as e:
-        logger.error(f"File reading failed for {file_path}: {str(e)}")
+        logger.error(f"File reading failed for {target_file}: {str(e)}")
         return f"Error reading file: {str(e)}"
 
 
@@ -406,10 +427,30 @@ async def search_in_files(
         
         search_pattern = search_pattern.strip()
         
-        search_dir = directory_path or ctx.deps.current_repo_path
-        if not search_dir or not os.path.exists(search_dir):
-            logger.error(f"Invalid search directory: {search_dir}")
-            return f"Invalid search directory: {search_dir}"
+        # Resolve directory path - default to current repo path if not specified or relative
+        if not directory_path or directory_path.strip() in ['', '.']:
+            search_dir = ctx.deps.current_repo_path
+            if not search_dir:
+                logger.error("No directory specified and no repository cloned")
+                return "Error: No directory specified and no repository available. Clone a repository first."
+        else:
+            directory_path = directory_path.strip()
+            if os.path.isabs(directory_path):
+                search_dir = directory_path
+            else:
+                # Relative path - resolve relative to current repo
+                if not ctx.deps.current_repo_path:
+                    logger.error("Relative path provided but no repository cloned")
+                    return "Error: Relative path provided but no repository available. Clone a repository first."
+                search_dir = os.path.join(ctx.deps.current_repo_path, directory_path)
+        
+        if not os.path.exists(search_dir):
+            logger.warning(f"Directory not found: {search_dir}")
+            return f"Directory does not exist: {search_dir}"
+        
+        if not os.path.isdir(search_dir):
+            logger.warning(f"Path is not a directory: {search_dir}")
+            return f"Path is not a directory: {search_dir}"
         
         # Validate regex pattern
         try:

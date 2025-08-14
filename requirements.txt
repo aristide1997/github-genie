@@ -1,0 +1,9 @@
+pydantic-ai
+httpx
+asyncio
+
+# A2A SDK dependencies
+a2a-sdk
+uvicorn
+
+starlette

@@ -32,7 +32,10 @@ async def main():
 
 When a user asks about GitHub repositories, code analysis, or anything related to software development, use the A2A agent tool to get help from the GitHub Genie specialist.
 
-Always explain what you're doing and provide comprehensive responses based on the specialist's output.""",
+Always explain what you're doing and provide comprehensive responses based on the specialist's output.
+
+Always report all the information that you have gathered from the specialist.
+""",
             tools=[a2a_tool],
         )
         

@@ -1,6 +1,7 @@
 """A2A Server for GitHub Genie - Pydantic AI Agent."""
 
 import logging
+import os
 import uvicorn
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -90,9 +91,9 @@ def create_public_agent_card(base_url: str):
 def main():
     """Main function to start the A2A server."""
     
-    # Configuration
+    # Configuration - Use PORT env var for Cloud Run compatibility
     HOST = '0.0.0.0'
-    PORT = 8000
+    PORT = int(os.getenv('PORT', 8000))
     BASE_URL = f'http://{HOST}:{PORT}/'
     
     logger.info(f"Initializing GitHub Genie A2A Server at {BASE_URL}")

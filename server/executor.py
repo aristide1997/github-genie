@@ -64,7 +64,7 @@ class PydanticAIAgentExecutor(AgentExecutor):
                 new_agent_text_message("Analyzing repository and processing your question...", context_id, task_id),
             )
 
-            logger.info(f"Processing question for session {context_id}: {question[:100]}...")
+            logger.info(f"Processing question for session {context_id}: {question}...")
 
             # Create dependencies with A2A progress reporter
             from agent.dependencies import GenieDependencies
@@ -77,6 +77,7 @@ class PydanticAIAgentExecutor(AgentExecutor):
             response = await ask_genie(question, deps=deps)
 
             logger.info(f"GitHub Genie response received for session {context_id}")
+            logger.info(f"Response: {response}")
 
             # Create the response artifact
             await updater.add_artifact(

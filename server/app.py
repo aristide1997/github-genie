@@ -30,7 +30,7 @@ def create_agent_skills():
         tags=['github', 'repository', 'analysis', 'code'],
         examples=[
             'Analyze https://github.com/user/repo',
-            'What is the structure of https://github.com/pydantic/pydantic-ai?',
+            'What is the structure of https://github.com/user/repo?',
             'Repository: https://github.com/user/repo - How does this project work?'
         ],
     )
@@ -72,7 +72,9 @@ def create_public_agent_card(base_url: str):
     return AgentCard(
         name='GitHub Genie',
         description='A code analysis agent that helps users understand GitHub repositories. '
-                   'Provide a repository URL and ask questions about the codebase to get detailed analysis.',
+                   'Provide a repository URL and ask questions about the codebase to get detailed analysis. '
+                   'Required input is a GitHub repository URL and a question about the codebase.'
+                   'Information that gathered from this agent should be reported fully in the response, without paraphrasing.',
         url=base_url,
         version='1.0.0',
         defaultInputModes=['text/plain'],

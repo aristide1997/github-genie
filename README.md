@@ -1,105 +1,50 @@
 # GitHub Genie 🧞‍♂️
 
-A powerful pydantic-ai agent that analyzes GitHub repositories and answers questions about codebases. Think of it as a code-aware assistant that can clone any public repository, understand its structure, and provide detailed insights about the code.
+GitHub Genie showcases the A2A (Agent-to-Agent) protocol by solving a problem many of us have: understanding unfamiliar codebases. Point it at any public GitHub repo, ask questions about the code, and get detailed analysis back.
 
-## Features
+This agent follows the A2A protocol, making it interoperable with other AI systems. Other agents can discover and use GitHub Genie as a specialized tool for code analysis.
 
-- **Repository Analysis**: Clone and analyze any public GitHub repository
-- **Code Understanding**: Navigate through project structure and understand codebase architecture
-- **Question Answering**: Ask specific questions about how the code works, patterns used, or implementation details
-- **A2A Server**: Deployable server that exposes the agent via the A2A (Agent-to-Agent) protocol
-- **Flexible Tools**: Search files, read code with line numbers, and explore directory structures
+## What it does
 
-## Quick Start
+Give GitHub Genie a repository URL and a question like "How does authentication work in this codebase?" and it will:
 
-### Installation
+1. Clone the repository  
+2. Analyze the project structure
+3. Navigate through relevant files
+4. Give you a detailed explanation with code examples
 
-```bash
-git clone https://github.com/yourusername/github-genie.git
-cd github-genie
-pip install -r requirements.txt
-```
+Because it follows the A2A protocol, other AI agents can use it as a tool. Your personal AI assistant could delegate code analysis questions to GitHub Genie automatically.
 
-### Environment Setup
+## Why A2A matters
 
-Create a `.env` file with your OpenAI API key:
+Traditional AI systems are isolated. A2A changes that by letting agents communicate and delegate tasks to each other. Think of it as microservices for AI agents.
 
-```bash
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-```
+In this project:
+- **GitHub Genie** specializes in code analysis
+- **Your agent** handles general conversation but can call GitHub Genie when needed
+- **Other agents** can discover and use GitHub Genie through the standard A2A protocol
 
-### Usage
+## Three ways to use it
 
-#### Option 1: Start the A2A Server (Recommended)
+### 1. Standard A2A Protocol (Universal)
+
+Run the server and any A2A-compatible client can discover and use GitHub Genie:
 
 ```bash
 python main.py
 ```
 
-The server will start on `http://localhost:8000` and expose the agent via the A2A protocol.
+The agent exposes its capabilities at `http://localhost:8000/.well-known/agent.json`. Any A2A client can:
 
-#### Option 2: Direct Agent Usage
+1. Fetch the agent card to understand GitHub Genie's capabilities
+2. Send tasks to the `/execute` endpoint
+3. Stream responses via WebSocket
 
-```bash
-python agent/example.py
-```
+This works with any A2A client implementation, regardless of framework. See the [A2A samples repo](https://github.com/a2aproject/a2a-samples) for examples in different languages.
 
-Or use it programmatically:
+### 2. Pydantic-AI Specific Implementation
 
-```python
-import asyncio
-from agent import ask_genie
-
-async def main():
-    question = """
-    Repository: https://github.com/pydantic/pydantic-ai
-    Question: How does the agent system work? What are the main components?
-    """
-    
-    response = await ask_genie(question)
-    print(response)
-
-asyncio.run(main())
-```
-
-## How It Works
-
-GitHub Genie uses several specialized tools to analyze repositories:
-
-1. **Clone Repository**: Downloads the specified GitHub repository to a temporary directory
-2. **Get Repository Structure**: Analyzes the overall project structure and key files
-3. **Directory Navigation**: Explores specific directories to understand organization
-4. **File Reading**: Reads code files with line numbers for detailed analysis
-5. **Code Search**: Searches for specific patterns or functions across the codebase
-
-The agent intelligently uses these tools to answer your questions about any public GitHub repository.
-
-## Example Queries
-
-```python
-# Architecture analysis
-"Repository: https://github.com/pydantic/pydantic-ai - How does the agent system work?"
-
-# Specific implementation details
-"Repository: https://github.com/fastapi/fastapi - How does dependency injection work?"
-
-# Code patterns
-"Repository: https://github.com/pallets/flask - What design patterns are used in the routing system?"
-
-# Dependencies and structure  
-"Repository: https://github.com/django/django - What are the main components and how do they interact?"
-```
-
-## A2A Server Integration
-
-The GitHub Genie can be used as an A2A agent by other AI systems. The server exposes:
-
-- **Agent Card**: Available at `/.well-known/agent.json`
-- **Skills**: Repository analysis, code questioning, and pattern searching
-- **Streaming**: Real-time response streaming for better user experience
-
-### Example A2A Client
+For pydantic-ai users, we've built a convenience wrapper that handles the A2A protocol:
 
 ```python
 from examples.client.a2a_tool_wrapper import A2AToolWrapper
@@ -109,57 +54,124 @@ from pydantic_ai import Agent
 a2a_wrapper = A2AToolWrapper(agent_url="http://localhost:8000")
 a2a_tool = await a2a_wrapper.create_tool()
 
-# Use in your own agent
+# Your agent can now delegate to GitHub Genie
 coordinator_agent = Agent(
     'openai:gpt-4o-mini',
     tools=[a2a_tool],
-    system_prompt="You can analyze GitHub repositories using the A2A tool..."
+    system_prompt="When users ask about code, use the GitHub analysis tool..."
+)
+
+result = await coordinator_agent.run(
+    "How does routing work in https://github.com/fastapi/fastapi?"
 )
 ```
 
-## Development
+Note: This A2AToolWrapper is specific to pydantic-ai. Other frameworks would need their own wrapper implementations.
 
-### Project Structure
+### 3. Web Frontend (Direct HTTP)
+
+For a simple direct chat interface without any intermediate agents:
+
+```bash
+cd examples/frontend
+python server.py
+```
+
+Open `http://localhost:3000` and start asking questions about repositories.
+
+## Examples that work
+
+Try these with any of the above methods:
+
+```
+Repository: https://github.com/fastapi/fastapi
+Question: How does dependency injection work?
+
+Repository: https://github.com/django/django  
+Question: What are the main components and how do they interact?
+
+Repository: https://github.com/pallets/flask
+Question: How does the routing system work?
+
+Repository: https://github.com/pydantic/pydantic-ai
+Question: Explain the agent architecture and tool system
+```
+
+## Quick Start
+
+```bash
+git clone <this-repo>
+cd github-genie
+pip install -r requirements.txt
+
+# Set up your OpenAI API key
+echo "OPENAI_API_KEY=your_key_here" > .env
+
+# Start the A2A server
+python main.py
+```
+
+The server exposes the standard A2A endpoints:
+- `/.well-known/agent.json` - Agent discovery card
+- `/execute` - Task execution
+- WebSocket streaming support
+
+## Project Structure
 
 ```
 github-genie/
-├── main.py                    # Server entry point
+├── main.py                 # A2A server entry point
 ├── agent/
-│   ├── agent.py              # Core pydantic-ai agent
-│   ├── tools.py              # Repository analysis tools
-│   ├── dependencies.py       # Agent dependencies
-│   └── example.py            # Direct usage example
-├── server/                   # A2A server implementation
+│   ├── agent.py           # Core pydantic-ai agent
+│   ├── tools.py           # Repository analysis tools  
+│   └── dependencies.py    # Agent dependencies
+├── server/                # A2A server implementation
+│   ├── app.py            # FastAPI + A2A integration
+│   └── executor.py       # Pydantic-ai executor
 ├── examples/
-│   └── client/               # A2A client examples
-└── tests/                    # Test cases
+│   ├── client/           # Agent-to-agent example
+│   └── frontend/         # Web interface example
+└── tests/                # Test cases
 ```
 
-### Running Tests
+## How it works
+
+GitHub Genie uses these tools to analyze repositories:
+
+- **clone_repository** - Downloads the repo to a temp directory
+- **get_repository_structure** - Maps out the project organization  
+- **list_directory_contents** - Explores specific folders
+- **read_file_content** - Reads code files with line numbers
+- **search_in_files** - Finds patterns across the codebase
+
+The A2A server wraps this pydantic-ai agent and exposes it through the standard protocol, making it discoverable and usable by other AI systems.
+
+## Testing
 
 ```bash
-python tests/test.py all
+# Test different repository types
+python tests/test.py cline           # Test with Cline repo
+python tests/test.py persistence     # Test with pydantic-ai repo  
+python tests/test.py git            # Test git functionality
+
+# Test A2A integration
+./tests/test_a2a.sh
 ```
 
-Available test commands:
-- `python tests/test.py cline` - Test Cline repository analysis
-- `python tests/test.py persistence` - Test pydantic-ai persistence analysis
-- `python tests/test.py git` - Test git command functionality
+## Implementation Notes
+
+Built with:
+- **pydantic-ai** for the core agent logic
+- **A2A Python SDK** for protocol implementation  
+- **FastAPI** for the HTTP server
+- Standard git tools for repository operations
+
+The agent is designed to be efficient - it doesn't read every file but strategically explores based on the question asked. For large repositories, it focuses on key files like README, package.json, requirements.txt, and main source directories.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Fork, create a feature branch, make your changes, test them, and open a PR. The codebase is straightforward and well-commented.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built with [pydantic-ai](https://github.com/pydantic/pydantic-ai)
-- A2A protocol implementation using [A2A SDK](https://github.com/anthropics/a2a-python)
-- Inspired by code analysis tools like Cursor and Cline
+MIT License - use it however you want.

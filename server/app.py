@@ -2,6 +2,8 @@
 
 import logging
 import uvicorn
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
@@ -113,11 +115,20 @@ def main():
         http_handler=request_handler,
     )
 
+    # Define CORS middleware
+    cors_middleware = Middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     logger.info(f"Starting GitHub Genie A2A Server on {HOST}:{PORT}")
     logger.info(f"Agent card will be available at: {BASE_URL}.well-known/agent.json")
     
-    # Run the server
-    uvicorn.run(server.build(), host=HOST, port=PORT)
+    # Run the server with CORS middleware
+    uvicorn.run(server.build(middleware=[cors_middleware]), host=HOST, port=PORT)
 
 
 if __name__ == '__main__':

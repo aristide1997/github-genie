@@ -86,4 +86,4 @@ async def ask_genie(question: str, deps: GenieDependencies = None) -> str:
         except Exception:
             pass  # Ignore cleanup errors
     
-    return result.data
+    return result.output

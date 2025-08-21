@@ -4,7 +4,7 @@ class ChatApp {
         this.sendButton = document.getElementById('sendButton');
         this.chatMessages = document.getElementById('chatMessages');
         this.isLoading = false;
-        this.a2aServerUrl = 'http://localhost:8000/';
+        this.a2aServerUrl = window.GITHUB_GENIE_SERVER_URL || 'http://localhost:8000/';
         
         this.initializeEventListeners();
         this.adjustTextareaHeight();

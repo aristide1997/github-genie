@@ -19,9 +19,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    
-    outputs:
-      service_url: ${{ steps.get-url.outputs.service_url }}
 
     steps:
     - name: Checkout
@@ -59,12 +56,19 @@ jobs:
           --max-instances 10 \
           --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
 
-    - name: Get Cloud Run URL
-      id: get-url
+    - name: Get Cloud Run URL and save to artifact
       run: |
         SERVICE_URL=$(gcloud run services describe $SERVICE --region=$REGION --format="value(status.url)")
         echo "Backend deployed to: $SERVICE_URL"
-        echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+        mkdir -p deployment-info
+        echo "$SERVICE_URL" > deployment-info/service_url.txt
+        
+    - name: Upload deployment info
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-info
+        path: deployment-info/
+        retention-days: 1
 
   deploy-frontend:
     needs: deploy-backend
@@ -79,6 +83,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Download deployment info
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-info
+        path: deployment-info/
+
     - name: Setup Pages
       uses: actions/configure-pages@v4
 
@@ -87,10 +97,14 @@ jobs:
         mkdir -p frontend-build
         cp -r examples/frontend/* frontend-build/
         
+        # Read the service URL from the artifact
+        SERVICE_URL=$(cat deployment-info/service_url.txt)
+        echo "Using backend URL: $SERVICE_URL"
+        
         # Generate config.js with actual Cloud Run URL
         cat > frontend-build/config.js << EOF
         // Configuration for GitHub Genie frontend
-        window.GITHUB_GENIE_SERVER_URL = '${{ needs.deploy-backend.outputs.service_url }}';
+        window.GITHUB_GENIE_SERVER_URL = '$SERVICE_URL';
         EOF
         
         echo "Generated config.js:"
@@ -107,5 +121,6 @@ jobs:
 
     - name: Show deployment URLs
       run: |
-        echo "Backend URL: ${{ needs.deploy-backend.outputs.service_url }}"
+        SERVICE_URL=$(cat deployment-info/service_url.txt)
+        echo "Backend URL: $SERVICE_URL"
         echo "Frontend URL: ${{ steps.deployment.outputs.page_url }}"

@@ -2,7 +2,9 @@ name: Deploy GitHub Genie
 
 on:
   push:
+    branches: [ '*' ]
   pull_request:
+    branches: [ '*' ]
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -11,7 +13,6 @@ env:
 
 jobs:
   deploy-backend:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     permissions:

@@ -3,10 +3,16 @@ class ChatApp {
         this.messageInput = document.getElementById('messageInput');
         this.sendButton = document.getElementById('sendButton');
         this.chatMessages = document.getElementById('chatMessages');
+        this.getAgentButton = document.getElementById('getAgentButton');
+        this.agentUrlModal = document.getElementById('agentUrlModal');
+        this.agentUrlInput = document.getElementById('agentUrlInput');
+        this.copyAgentUrlButton = document.getElementById('copyAgentUrlButton');
+        this.closeModalButton = document.getElementById('closeModalButton');
         this.isLoading = false;
         this.a2aServerUrl = window.GITHUB_GENIE_SERVER_URL || 'http://localhost:8000/';
         
         this.initializeEventListeners();
+        this.initializeAgentUrl();
         this.adjustTextareaHeight();
     }
     
@@ -33,6 +39,91 @@ class ChatApp {
         
         // Auto-resize textarea
         this.messageInput.addEventListener('input', () => this.adjustTextareaHeight());
+        
+        // Get Agent button
+        this.getAgentButton.addEventListener('click', () => this.showAgentModal());
+        
+        // Close modal button
+        this.closeModalButton.addEventListener('click', () => this.hideAgentModal());
+        
+        // Copy agent URL button
+        this.copyAgentUrlButton.addEventListener('click', () => this.copyAgentUrl());
+        
+        // Close modal when clicking outside
+        this.agentUrlModal.addEventListener('click', (e) => {
+            if (e.target === this.agentUrlModal) {
+                this.hideAgentModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.agentUrlModal.classList.contains('hidden')) {
+                this.hideAgentModal();
+            }
+        });
+    }
+    
+    showAgentModal() {
+        this.agentUrlModal.classList.remove('hidden');
+        // Focus the input field for easy copying
+        setTimeout(() => {
+            this.agentUrlInput.focus();
+            this.agentUrlInput.select();
+        }, 100);
+    }
+    
+    hideAgentModal() {
+        this.agentUrlModal.classList.add('hidden');
+    }
+    
+    initializeAgentUrl() {
+        // Generate the agent card URL from the server URL
+        const serverUrl = this.a2aServerUrl.endsWith('/') ? this.a2aServerUrl.slice(0, -1) : this.a2aServerUrl;
+        const agentCardUrl = `${serverUrl}/.well-known/agent.json`;
+        
+        // Set the agent URL in the input field
+        this.agentUrlInput.value = agentCardUrl;
+    }
+    
+    async copyAgentUrl() {
+        try {
+            const agentUrl = this.agentUrlInput.value;
+            
+            // Use the modern clipboard API if available
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(agentUrl);
+            } else {
+                // Fallback for older browsers
+                this.agentUrlInput.select();
+                this.agentUrlInput.setSelectionRange(0, 99999); // For mobile devices
+                document.execCommand('copy');
+                this.agentUrlInput.blur();
+            }
+            
+            // Show visual feedback
+            this.showCopyFeedback();
+            
+        } catch (error) {
+            console.error('Failed to copy agent URL:', error);
+            // Still show feedback even if copy failed
+            this.showCopyFeedback(false);
+        }
+    }
+    
+    showCopyFeedback(success = true) {
+        const button = this.copyAgentUrlButton;
+        const originalClass = button.className;
+        
+        // Add success/error class
+        if (success) {
+            button.classList.add('copied');
+        }
+        
+        // Remove the class after 2 seconds
+        setTimeout(() => {
+            button.className = originalClass;
+        }, 2000);
     }
     
     adjustTextareaHeight() {

@@ -54,7 +54,7 @@ async def main():
         logger.info(f"Running query: {query}")
         
         result = await coordinator_agent.run(query)
-        print(result.data)
+        print(result.output)
         
         logger.info("Query completed successfully")
         

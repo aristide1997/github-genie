@@ -120,18 +120,29 @@ The server exposes the standard A2A endpoints:
 
 ```
 github-genie/
-├── main.py                 # A2A server entry point
-├── agent/
-│   ├── agent.py           # Core pydantic-ai agent
-│   ├── tools.py           # Repository analysis tools  
-│   └── dependencies.py    # Agent dependencies
-├── server/                # A2A server implementation
-│   ├── app.py            # FastAPI + A2A integration
-│   └── executor.py       # Pydantic-ai executor
+├── main.py                      # A2A server entry point
+├── src/
+│   └── github_genie/
+│       ├── agent/
+│       │   ├── agent.py         # Core pydantic-ai agent
+│       │   ├── tools.py         # Repository analysis tools  
+│       │   └── dependencies.py  # Agent dependencies
+│       └── server/              # A2A server implementation
+│           ├── app.py           # A2A server + agent integration
+│           ├── executor.py      # Pydantic-ai executor
+│           └── progress_reporter.py  # Task progress reporting
 ├── examples/
-│   ├── client/           # Agent-to-agent example
-│   └── frontend/         # Web interface example
-└── tests/                # Test cases
+│   ├── client/                  # Agent-to-agent example
+│   │   ├── main.py             # Client demonstration
+│   │   └── a2a_tool_wrapper.py # Pydantic-AI A2A wrapper
+│   └── frontend/                # Web interface example
+│       ├── index.html          # Chat interface
+│       ├── script.js           # Frontend logic
+│       ├── style.css           # Styling
+│       └── server.py           # Static file server
+└── tests/                       # Test cases
+    ├── test.py                 # Repository analysis tests
+    └── test_a2a.sh             # A2A protocol tests
 ```
 
 ## How it works
@@ -162,8 +173,8 @@ python tests/test.py git            # Test git functionality
 
 Built with:
 - **pydantic-ai** for the core agent logic
-- **A2A Python SDK** for protocol implementation  
-- **FastAPI** for the HTTP server
+- **a2a-sdk** for A2A protocol implementation  
+- **uvicorn** and **starlette** for the HTTP server
 - Standard git tools for repository operations
 
 The agent is designed to be efficient - it doesn't read every file but strategically explores based on the question asked. For large repositories, it focuses on key files like README, package.json, requirements.txt, and main source directories.

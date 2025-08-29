@@ -19,7 +19,7 @@ from a2a.types import (
 from a2a.utils import are_modalities_compatible, new_agent_text_message
 from a2a.utils.errors import ServerError
 
-from agent import ask_genie
+from ..agent import ask_genie
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class PydanticAIAgentExecutor(AgentExecutor):
             logger.info(f"Processing question for session {context_id}: {question}...")
 
             # Create dependencies with A2A progress reporter
-            from agent.dependencies import GenieDependencies
+            from ..agent.dependencies import GenieDependencies
             from .progress_reporter import A2AProgressReporter
             
             progress_reporter = A2AProgressReporter(updater)

@@ -4,7 +4,7 @@
 This is the main entry point to start the GitHub Genie A2A server.
 """
 
-from server.app import main
+from src.github_genie.server.app import main
 
 if __name__ == '__main__':
     main()

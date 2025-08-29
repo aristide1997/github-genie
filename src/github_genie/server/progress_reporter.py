@@ -4,7 +4,7 @@ from a2a.server.tasks import TaskUpdater
 from a2a.types import TaskState
 from a2a.utils import new_agent_text_message
 
-from agent.dependencies import ProgressReporter
+from ..agent.dependencies import ProgressReporter
 
 
 class A2AProgressReporter(ProgressReporter):

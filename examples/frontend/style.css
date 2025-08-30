@@ -6,10 +6,161 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #fafafa;
+    background-color: #1a1a1a;
     height: 100vh;
     overflow: hidden;
     line-height: 1.6;
+}
+
+/* View Transitions: name shared elements to morph between welcome and chat */
+:root {
+    view-transition-name: none;
+}
+
+.vt-title {
+    view-transition-name: app-title;
+}
+
+.vt-input {
+    view-transition-name: app-input;
+}
+
+.vt-get-agent {
+    view-transition-name: app-get-agent;
+}
+
+/* Tweak timing/animation subtly without changing final styles */
+@media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(app-title),
+    ::view-transition-new(app-title),
+    ::view-transition-old(app-input),
+    ::view-transition-new(app-input),
+    ::view-transition-old(app-get-agent),
+    ::view-transition-new(app-get-agent) {
+        animation-duration: 300ms;
+        animation-timing-function: ease;
+    }
+}
+
+/* Global utility classes */
+.hidden {
+    display: none !important;
+}
+
+/* Welcome State Styles */
+.welcome-state {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 32px;
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+}
+
+.welcome-state.transitioning {
+    opacity: 0;
+}
+
+.welcome-get-agent {
+    position: absolute;
+    top: 32px;
+    right: 32px;
+}
+
+.welcome-content {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+}
+
+.welcome-title {
+    font-size: 3rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 8px;
+    letter-spacing: -0.05em;
+}
+
+.welcome-subtitle {
+    font-size: 1.125rem;
+    color: #a0a0a0;
+    margin-bottom: 48px;
+    font-weight: 400;
+}
+
+.welcome-input-container {
+    margin-bottom: 32px;
+}
+
+.welcome-input {
+    display: flex;
+    align-items: flex-end;
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
+    border-radius: 16px;
+    padding: 16px 20px;
+    gap: 16px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 100%;
+}
+
+.welcome-input:focus-within {
+    border-color: #666666;
+    box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#welcomeMessageInput {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    resize: none;
+    font-size: 1rem;
+    line-height: 1.6;
+    min-height: 24px;
+    max-height: 120px;
+    padding: 4px 0;
+    font-family: inherit;
+    color: #ffffff;
+}
+
+#welcomeMessageInput::placeholder {
+    color: #666666;
+}
+
+.welcome-examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.example-prompt {
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
+    border-radius: 24px;
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    color: #a0a0a0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.example-prompt:hover {
+    background-color: #404040;
+    border-color: #555555;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.example-prompt:active {
+    transform: translateY(0);
 }
 
 .chat-container {
@@ -18,14 +169,14 @@ body {
     height: 100vh;
     max-width: 900px;
     margin: 0 auto;
-    background-color: #ffffff;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+    background-color: #1a1a1a;
+    box-shadow: none;
 }
 
 .chat-header {
     padding: 24px 32px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #f0f0f0;
+    background-color: #1a1a1a;
+    border-bottom: 1px solid #333333;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -34,14 +185,14 @@ body {
 .chat-header h1 {
     font-size: 1.5rem;
     font-weight: 500;
-    color: #1a1a1a;
+    color: #ffffff;
     letter-spacing: -0.025em;
     margin: 0;
 }
 
 .get-agent-button {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
     border-radius: 8px;
     padding: 8px 12px;
     display: flex;
@@ -49,15 +200,15 @@ body {
     gap: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    color: #6c757d;
+    color: #a0a0a0;
     font-size: 0.875rem;
     font-weight: 500;
     font-family: inherit;
 }
 
 .get-agent-button:hover {
-    background-color: #2d3748;
-    border-color: #2d3748;
+    background-color: #404040;
+    border-color: #555555;
     color: white;
     transform: translateY(-1px);
 }
@@ -87,18 +238,19 @@ body {
 }
 
 .modal-content {
-    background-color: #ffffff;
+    background-color: #2a2a2a;
     border-radius: 12px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow: hidden;
+    border: 1px solid #404040;
 }
 
 .modal-header {
     padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #404040;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -107,7 +259,7 @@ body {
 .modal-header h3 {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: #ffffff;
     margin: 0;
 }
 
@@ -116,14 +268,14 @@ body {
     border: none;
     cursor: pointer;
     padding: 4px;
-    color: #6c757d;
+    color: #a0a0a0;
     border-radius: 4px;
     transition: all 0.2s ease;
 }
 
 .close-button:hover {
-    background-color: #f8f9fa;
-    color: #2d3748;
+    background-color: #404040;
+    color: #ffffff;
 }
 
 .modal-body {
@@ -132,7 +284,7 @@ body {
 
 .modal-description {
     font-size: 0.875rem;
-    color: #6c757d;
+    color: #a0a0a0;
     margin-bottom: 16px;
     line-height: 1.5;
 }
@@ -146,24 +298,24 @@ body {
 .agent-url-input {
     font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Consolas', monospace;
     font-size: 0.8rem;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background-color: #1a1a1a;
+    border: 1px solid #404040;
     border-radius: 8px;
     padding: 10px 12px;
     flex: 1;
-    color: #2d3748;
+    color: #ffffff;
     outline: none;
     transition: all 0.2s ease;
 }
 
 .agent-url-input:focus {
-    border-color: #2d3748;
-    box-shadow: 0 0 0 3px rgba(45, 55, 72, 0.1);
+    border-color: #666666;
+    box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.2);
 }
 
 .copy-button {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
     border-radius: 8px;
     width: 40px;
     height: 40px;
@@ -172,13 +324,13 @@ body {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    color: #6c757d;
+    color: #a0a0a0;
     flex-shrink: 0;
 }
 
 .copy-button:hover {
-    background-color: #2d3748;
-    border-color: #2d3748;
+    background-color: #404040;
+    border-color: #555555;
     color: white;
     transform: translateY(-1px);
 }
@@ -231,48 +383,48 @@ body {
 }
 
 .message.user .message-content {
-    background-color: #2d3748;
+    background-color: #404040;
     color: #ffffff;
     border-bottom-right-radius: 4px;
-    box-shadow: 0 2px 8px rgba(45, 55, 72, 0.15);
+    box-shadow: 0 2px 8px rgba(64, 64, 64, 0.3);
 }
 
 .message.assistant .message-content {
-    background-color: #f8f9fa;
-    color: #2d3748;
+    background-color: #2a2a2a;
+    color: #ffffff;
     border-bottom-left-radius: 4px;
-    border: 1px solid #e9ecef;
+    border: 1px solid #404040;
 }
 
 .message.loading .message-content {
-    background-color: #f8f9fa;
-    color: #6c757d;
-    border: 1px solid #e9ecef;
+    background-color: #2a2a2a;
+    color: #a0a0a0;
+    border: 1px solid #404040;
     font-style: normal;
     opacity: 0.8;
 }
 
 .chat-input-container {
     padding: 24px 32px 32px 32px;
-    background-color: #ffffff;
-    border-top: 1px solid #f0f0f0;
+    background-color: #1a1a1a;
+    border-top: 1px solid #333333;
 }
 
 .chat-input {
     display: flex;
     align-items: flex-end;
-    background-color: #ffffff;
-    border: 1px solid #e9ecef;
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
     border-radius: 12px;
     padding: 12px 16px;
     gap: 12px;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .chat-input:focus-within {
-    border-color: #2d3748;
-    box-shadow: 0 0 0 3px rgba(45, 55, 72, 0.1);
+    border-color: #666666;
+    box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.2);
 }
 
 #messageInput {
@@ -287,15 +439,15 @@ body {
     max-height: 120px;
     padding: 4px 0;
     font-family: inherit;
-    color: #2d3748;
+    color: #ffffff;
 }
 
 #messageInput::placeholder {
-    color: #a0aec0;
+    color: #666666;
 }
 
 .send-button {
-    background-color: #2d3748;
+    background-color: #404040;
     color: white;
     border: none;
     border-radius: 8px;
@@ -310,12 +462,12 @@ body {
 }
 
 .send-button:hover:not(:disabled) {
-    background-color: #1a202c;
+    background-color: #555555;
     transform: translateY(-1px);
 }
 
 .send-button:disabled {
-    background-color: #cbd5e0;
+    background-color: #2a2a2a;
     cursor: not-allowed;
     transform: none;
 }
@@ -327,6 +479,55 @@ body {
 }
 
 @media (max-width: 768px) {
+    /* Welcome State Mobile Styles */
+    .welcome-state {
+        padding: 24px;
+    }
+    
+    .welcome-get-agent {
+        top: 24px;
+        right: 24px;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        gap: 6px;
+    }
+    
+    .welcome-get-agent svg {
+        width: 14px;
+        height: 14px;
+    }
+    
+    .welcome-title {
+        font-size: 2.25rem;
+        margin-bottom: 12px;
+    }
+    
+    .welcome-subtitle {
+        font-size: 1rem;
+        margin-bottom: 40px;
+    }
+    
+    .welcome-input {
+        padding: 12px 16px;
+        gap: 12px;
+        border-radius: 12px;
+    }
+    
+    #welcomeMessageInput {
+        font-size: 0.95rem;
+    }
+    
+    .welcome-examples {
+        gap: 8px;
+        margin-top: 20px;
+    }
+    
+    .example-prompt {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+    
+    /* Chat Interface Mobile Styles */
     .chat-container {
         box-shadow: none;
         border-radius: 0;

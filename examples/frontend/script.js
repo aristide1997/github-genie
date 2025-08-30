@@ -1,19 +1,33 @@
 class ChatApp {
     constructor() {
+        // State management
+        this.isWelcomeState = true;
+        this.isLoading = false;
+        this.a2aServerUrl = window.GITHUB_GENIE_SERVER_URL || 'http://localhost:8000/';
+        
+        // Welcome state elements
+        this.welcomeState = document.getElementById('welcomeState');
+        this.welcomeMessageInput = document.getElementById('welcomeMessageInput');
+        this.welcomeSendButton = document.getElementById('welcomeSendButton');
+        this.getAgentButtonWelcome = document.getElementById('getAgentButtonWelcome');
+        this.examplePrompts = document.querySelectorAll('.example-prompt');
+        
+        // Chat state elements
+        this.chatInterface = document.getElementById('chatInterface');
         this.messageInput = document.getElementById('messageInput');
         this.sendButton = document.getElementById('sendButton');
         this.chatMessages = document.getElementById('chatMessages');
         this.getAgentButton = document.getElementById('getAgentButton');
+        
+        // Modal elements
         this.agentUrlModal = document.getElementById('agentUrlModal');
         this.agentUrlInput = document.getElementById('agentUrlInput');
         this.copyAgentUrlButton = document.getElementById('copyAgentUrlButton');
         this.closeModalButton = document.getElementById('closeModalButton');
-        this.isLoading = false;
-        this.a2aServerUrl = window.GITHUB_GENIE_SERVER_URL || 'http://localhost:8000/';
         
         this.initializeEventListeners();
         this.initializeAgentUrl();
-        this.adjustTextareaHeight();
+        this.adjustWelcomeTextareaHeight();
     }
     
     // Generate a UUID v4
@@ -26,10 +40,33 @@ class ChatApp {
     }
     
     initializeEventListeners() {
-        // Send button click
+        // Welcome state event listeners
+        this.welcomeSendButton.addEventListener('click', () => this.sendWelcomeMessage());
+        
+        this.welcomeMessageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendWelcomeMessage();
+            }
+        });
+        
+        this.welcomeMessageInput.addEventListener('input', () => this.adjustWelcomeTextareaHeight());
+        
+        this.getAgentButtonWelcome.addEventListener('click', () => this.showAgentModal());
+        
+        // Example prompt clicks
+        this.examplePrompts.forEach(prompt => {
+            prompt.addEventListener('click', () => {
+                const promptText = prompt.getAttribute('data-prompt');
+                this.welcomeMessageInput.value = promptText;
+                this.adjustWelcomeTextareaHeight();
+                this.welcomeMessageInput.focus();
+            });
+        });
+        
+        // Chat state event listeners
         this.sendButton.addEventListener('click', () => this.sendMessage());
         
-        // Enter key to send (Shift+Enter for new line)
         this.messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -37,26 +74,21 @@ class ChatApp {
             }
         });
         
-        // Auto-resize textarea
         this.messageInput.addEventListener('input', () => this.adjustTextareaHeight());
         
-        // Get Agent button
         this.getAgentButton.addEventListener('click', () => this.showAgentModal());
         
-        // Close modal button
+        // Modal event listeners
         this.closeModalButton.addEventListener('click', () => this.hideAgentModal());
         
-        // Copy agent URL button
         this.copyAgentUrlButton.addEventListener('click', () => this.copyAgentUrl());
         
-        // Close modal when clicking outside
         this.agentUrlModal.addEventListener('click', (e) => {
             if (e.target === this.agentUrlModal) {
                 this.hideAgentModal();
             }
         });
         
-        // Close modal with Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !this.agentUrlModal.classList.contains('hidden')) {
                 this.hideAgentModal();
@@ -131,16 +163,74 @@ class ChatApp {
         this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 96) + 'px';
     }
     
-    async sendMessage() {
-        const message = this.messageInput.value.trim();
+    adjustWelcomeTextareaHeight() {
+        this.welcomeMessageInput.style.height = 'auto';
+        this.welcomeMessageInput.style.height = Math.min(this.welcomeMessageInput.scrollHeight, 96) + 'px';
+    }
+    
+    async sendWelcomeMessage() {
+        const message = this.welcomeMessageInput.value.trim();
         if (!message || this.isLoading) return;
         
+        try {
+            // Set loading state to prevent double-clicks
+            this.setLoading(true);
+            
+            // Transition to chat interface
+            await this.transitionToChatInterface();
+            
+            // Continue with sending the message
+            await this.sendMessageCore(message);
+            
+        } catch (error) {
+            console.error('Error during welcome message flow:', error);
+            this.setLoading(false);
+        }
+    }
+    
+    async transitionToChatInterface() {
+        const performSwitch = () => {
+            this.welcomeState.classList.add('hidden');
+            this.welcomeState.classList.remove('transitioning');
+            this.chatInterface.classList.remove('hidden');
+            this.isWelcomeState = false;
+            setTimeout(() => {
+                this.messageInput.focus();
+            }, 50);
+        };
+
+        // Use View Transitions API when available and motion is allowed
+        const supportsVT = typeof document.startViewTransition === 'function' &&
+            !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (supportsVT) {
+            try {
+                await document.startViewTransition(() => {
+                    performSwitch();
+                })?.finished;
+                return;
+            } catch (e) {
+                // fall back below
+            }
+        }
+
+        // Fallback: keep existing fade for older browsers/reduced motion
+        return new Promise((resolve, reject) => {
+            try {
+                this.welcomeState.classList.add('transitioning');
+                setTimeout(() => {
+                    performSwitch();
+                    resolve();
+                }, 300);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+    
+    async sendMessageCore(message) {
         // Add user message to chat
         this.addMessage(message, 'user');
-        
-        // Clear input and reset height
-        this.messageInput.value = '';
-        this.adjustTextareaHeight();
         
         // Show loading state
         this.setLoading(true);
@@ -194,6 +284,18 @@ class ChatApp {
         } finally {
             this.setLoading(false);
         }
+    }
+    
+    async sendMessage() {
+        const message = this.messageInput.value.trim();
+        if (!message || this.isLoading) return;
+        
+        // Clear input and reset height
+        this.messageInput.value = '';
+        this.adjustTextareaHeight();
+        
+        // Use the shared core logic
+        await this.sendMessageCore(message);
     }
 
     async processStreamingResponse(response, progressElement) {
@@ -347,8 +449,14 @@ class ChatApp {
     
     setLoading(loading) {
         this.isLoading = loading;
+        
+        // Disable chat interface elements
         this.sendButton.disabled = loading;
         this.messageInput.disabled = loading;
+        
+        // Disable welcome interface elements
+        this.welcomeSendButton.disabled = loading;
+        this.welcomeMessageInput.disabled = loading;
     }
     
     scrollToBottom() {

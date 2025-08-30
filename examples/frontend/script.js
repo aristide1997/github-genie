@@ -159,13 +159,27 @@ class ChatApp {
     }
     
     adjustTextareaHeight() {
-        this.messageInput.style.height = 'auto';
-        this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 96) + 'px';
+        // Use modern field-sizing if supported, otherwise fallback to JavaScript
+        if (!CSS.supports('field-sizing', 'content')) {
+            const input = this.messageInput;
+            input.style.height = 'auto';
+            // Use requestAnimationFrame for better mobile performance
+            requestAnimationFrame(() => {
+                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+            });
+        }
     }
     
     adjustWelcomeTextareaHeight() {
-        this.welcomeMessageInput.style.height = 'auto';
-        this.welcomeMessageInput.style.height = Math.min(this.welcomeMessageInput.scrollHeight, 96) + 'px';
+        // Use modern field-sizing if supported, otherwise fallback to JavaScript
+        if (!CSS.supports('field-sizing', 'content')) {
+            const input = this.welcomeMessageInput;
+            input.style.height = 'auto';
+            // Use requestAnimationFrame for better mobile performance
+            requestAnimationFrame(() => {
+                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+            });
+        }
     }
     
     async sendWelcomeMessage() {

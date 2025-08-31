@@ -80,6 +80,13 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: examples/frontend/package-lock.json
+
     - name: Download deployment info
       uses: actions/download-artifact@v4
       with:
@@ -89,16 +96,26 @@ jobs:
     - name: Setup Pages
       uses: actions/configure-pages@v4
 
+    - name: Install React dependencies
+      run: |
+        cd examples/frontend
+        npm ci
+
+    - name: Build React app
+      run: |
+        cd examples/frontend
+        npm run build
+
     - name: Prepare frontend for deployment
       run: |
         mkdir -p frontend-build
-        cp -r examples/frontend/* frontend-build/
+        cp -r examples/frontend/dist/* frontend-build/
         
         # Read the service URL from the artifact
         SERVICE_URL=$(cat deployment-info/service_url.txt)
         echo "Using backend URL: $SERVICE_URL"
         
-        # Generate config.js with actual Cloud Run URL
+        # Generate config.js with actual Cloud Run URL (override the default one)
         cat > frontend-build/config.js << EOF
         // Configuration for GitHub Genie frontend
         window.GITHUB_GENIE_SERVER_URL = '$SERVICE_URL';

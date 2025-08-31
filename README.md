@@ -70,11 +70,12 @@ Note: This A2AToolWrapper is specific to pydantic-ai. Other frameworks would nee
 
 ### 3. Web Frontend (Direct HTTP)
 
-For a simple direct chat interface without any intermediate agents:
+For a simple chat interface without any intermediate agents:
 
 ```bash
 cd examples/frontend
-python server.py
+npm install  # First time only
+npm run dev
 ```
 
 Open `http://localhost:3000` and start asking questions about repositories.
@@ -135,11 +136,15 @@ github-genie/
 │   ├── client/                  # Agent-to-agent example
 │   │   ├── main.py             # Client demonstration
 │   │   └── a2a_tool_wrapper.py # Pydantic-AI A2A wrapper
-│   └── frontend/                # Web interface example
-│       ├── index.html          # Chat interface
-│       ├── script.js           # Frontend logic
-│       ├── style.css           # Styling
-│       └── server.py           # Static file server
+│   └── frontend/                # React web interface example
+│       ├── src/                # React source code
+│       │   ├── components/     # React components
+│       │   ├── hooks/          # Custom React hooks
+│       │   ├── utils/          # Utility functions
+│       │   └── styles/         # CSS styles
+│       ├── public/             # Static assets
+│       ├── package.json        # Node.js dependencies
+│       └── index.html          # HTML entry point
 └── tests/                       # Test cases
     ├── test.py                 # Repository analysis tests
     └── test_a2a.sh             # A2A protocol tests

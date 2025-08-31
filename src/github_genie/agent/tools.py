@@ -403,15 +403,19 @@ async def search_in_files(
     ctx: RunContext[GenieDependencies], 
     search_pattern: str, 
     directory_path: str = None, 
-    file_extensions: list[str] = None
+    file_extensions: list[str] = None,
+    max_files: int = 15,
+    max_tokens: int = 100000
 ) -> str:
-    """Search for patterns across multiple files.
+    """Search for patterns across multiple files with LLM-friendly output limits.
     
     Args:
         ctx: The context.
         search_pattern: Regex pattern to search for.
         directory_path: Directory to search in (defaults to current repo path).
         file_extensions: List of file extensions to search (e.g., ['.py', '.js']).
+        max_files: Maximum number of files to include in results (default: 15).
+        max_tokens: Approximate token limit to prevent rate limit errors (default: 100k).
     """
     logger.info(f"🔧 TOOL: search_in_files(search_pattern='{search_pattern}', directory_path={directory_path}, file_extensions={file_extensions})")
     
@@ -461,6 +465,14 @@ async def search_in_files(
         
         matches = []
         files_searched = 0
+        total_matches_found = 0
+        estimated_tokens = 0
+        files_with_matches = 0
+        truncated = False
+        
+        def estimate_tokens(text: str) -> int:
+            """Rough token estimation: ~4 characters per token"""
+            return len(text) // 4
         
         # Walk through directory
         for root, dirs, files in os.walk(search_dir):
@@ -500,51 +512,90 @@ async def search_in_files(
                         continue  # Skip if can't decode
                     
                     files_searched += 1
+                    file_matches = []
                     
-                    # Find matches
+                    # Find matches in this file
                     for line_num, line in enumerate(content.split('\n'), 1):
                         if pattern.search(line):
+                            total_matches_found += 1
+                            
                             # Get some context around the match
                             lines = content.split('\n')
-                            start = max(0, line_num - 3)
-                            end = min(len(lines), line_num + 2)
+                            start = max(0, line_num - 2)  # Reduced context for token efficiency
+                            end = min(len(lines), line_num + 1)
                             context_lines = lines[start:end]
                             
                             # Highlight the matching line
                             context_lines[line_num - 1 - start] = f">>> {context_lines[line_num - 1 - start]}"
                             
                             relative_path = os.path.relpath(file_path, search_dir)
-                            matches.append({
+                            match_context = '\n'.join(context_lines)
+                            
+                            # Estimate tokens for this match
+                            match_text = f"📄 {relative_path}:{line_num}\n{match_context}\n"
+                            match_tokens = estimate_tokens(match_text)
+                            
+                            # Check if adding this match would exceed limits
+                            if (estimated_tokens + match_tokens > max_tokens or 
+                                files_with_matches >= max_files):
+                                truncated = True
+                                break
+                            
+                            file_matches.append({
                                 'file': relative_path,
                                 'line': line_num,
-                                'context': '\n'.join(context_lines)
+                                'context': match_context,
+                                'tokens': match_tokens
                             })
+                            estimated_tokens += match_tokens
                             
-                            # Limit matches per file
-                            if len([m for m in matches if m['file'] == relative_path]) >= 5:
+                            # Limit matches per file to keep results manageable
+                            if len(file_matches) >= 3:  # Reduced from 5 for token efficiency
                                 break
+                    
+                    # Add file matches if any found and we haven't exceeded limits
+                    if file_matches:
+                        matches.extend(file_matches)
+                        files_with_matches += 1
+                        
+                        # Check file limit after adding this file's matches
+                        if files_with_matches >= max_files:
+                            truncated = True
+                            break
                 
                 except Exception:
                     continue  # Skip files that can't be read
                 
-                # Limit total matches
-                if len(matches) >= 50:
+                if truncated:
                     break
             
-            if len(matches) >= 50:
+            if truncated:
                 break
         
         if not matches:
             return f"No matches found for pattern '{search_pattern}' in {files_searched} files searched."
         
-        result = [f"Found {len(matches)} matches for pattern '{search_pattern}' in {files_searched} files:\n"]
+        # Build result with summary
+        result_parts = []
         
+        # Summary header
+        summary = f"Found {total_matches_found} matches for pattern '{search_pattern}' in {files_searched} files"
+        if truncated:
+            summary += f" (showing first {len(matches)} matches from {files_with_matches} files)"
+        result_parts.append(f"{summary}:\n")
+        
+        # Add matches
         for match in matches:
-            result.append(f"📄 {match['file']}:{match['line']}")
-            result.append(match['context'])
-            result.append("")  # Empty line for separation
+            result_parts.append(f"📄 {match['file']}:{match['line']}")
+            result_parts.append(match['context'])
+            result_parts.append("")  # Empty line for separation
         
-        return "\n".join(result)
+        # Add truncation notice if applicable
+        if truncated:
+            result_parts.append("⚠️  Results truncated due to size limits.")
+            result_parts.append("💡 Use more specific search patterns to see additional matches.")
+        
+        return "\n".join(result_parts)
         
     except Exception as e:
         logger.error(f"File search failed in {search_dir}: {str(e)}")

@@ -11,6 +11,7 @@ import shutil
 from dataclasses import dataclass
 
 from pydantic_ai import Agent
+from pydantic_ai.models.fallback import FallbackModel
 
 from . import tools
 from .dependencies import GenieDependencies
@@ -23,11 +24,9 @@ logging.basicConfig(
 logger = logging.getLogger('github_genie')
 
 
-# Create the GitHub Genie agent
+# Create the GitHub Genie agent with fallback model
 github_genie = Agent(
-    'openai:gpt-5-nano',
-    # 'openai:gpt-4.1-nano',
-    # 'google-gla:gemini-2.5-flash',
+    FallbackModel('openai:gpt-5-nano', 'openai:gpt-4.1-nano'),
     deps_type=GenieDependencies,
     system_prompt=
 f"""You are GitHub Genie, a code analysis agent that helps users understand repositories.

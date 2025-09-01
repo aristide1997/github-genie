@@ -49,6 +49,11 @@ export const useChat = () => {
         setMessages(prev => prev.filter(msg => msg.id !== messageId));
     }, []);
 
+    const clearMessages = useCallback(() => {
+        setMessages([]);
+        progressMessageIdRef.current = null;
+    }, []);
+
     const sendMessage = useCallback(async (message: string) => {
         if (!message.trim() || isLoading) return;
         
@@ -123,6 +128,7 @@ export const useChat = () => {
         isLoading,
         messagesRef,
         sendMessage,
-        scrollToBottom
+        scrollToBottom,
+        clearMessages
     };
 };

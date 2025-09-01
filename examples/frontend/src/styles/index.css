@@ -100,12 +100,16 @@ body.keyboard-open #root {
     opacity: 0;
 }
 
-.welcome-get-agent {
+.welcome-top-buttons {
     position: absolute;
     top: max(32px, env(safe-area-inset-top, 0px) + 16px);
     right: max(32px, env(safe-area-inset-right, 0px) + 16px);
     z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
+
 
 .welcome-content {
     max-width: 600px;
@@ -230,11 +234,56 @@ body.keyboard-open #root {
     margin: 0;
 }
 
+.clickable-title {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.clickable-title:hover {
+    color: #cccccc;
+    transform: translateY(-1px);
+}
+
+.header-buttons {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.github-button {
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #a0a0a0;
+    text-decoration: none;
+    width: 36px;
+    height: 36px;
+}
+
+.github-button:hover {
+    background-color: #404040;
+    border-color: #555555;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.github-button svg {
+    width: 16px;
+    height: 16px;
+}
+
 .get-agent-button {
     background-color: #2a2a2a;
     border: 1px solid #404040;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -244,6 +293,7 @@ body.keyboard-open #root {
     font-size: 0.875rem;
     font-weight: 500;
     font-family: inherit;
+    height: 36px;
 }
 
 .get-agent-button:hover {
@@ -357,8 +407,8 @@ body.keyboard-open #root {
     background-color: #2a2a2a;
     border: 1px solid #404040;
     border-radius: 8px;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -528,12 +578,28 @@ body.keyboard-open #root {
         padding: 24px;
     }
     
-    .welcome-get-agent {
+    .welcome-top-buttons {
         top: max(16px, env(safe-area-inset-top, 0px) + 8px);
         right: max(16px, env(safe-area-inset-right, 0px) + 8px);
-        padding: 6px 10px;
+        gap: 8px;
+    }
+    
+    .github-button {
+        width: 44px;
+        height: 44px;
+        padding: 12px;
+    }
+    
+    .github-button svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .welcome-get-agent {
+        padding: 12px 16px;
         font-size: 0.8rem;
         gap: 6px;
+        height: 44px;
     }
     
     .welcome-get-agent svg {
@@ -586,9 +652,10 @@ body.keyboard-open #root {
     }
     
     .get-agent-button {
-        padding: 6px 10px;
+        padding: 12px 16px;
         font-size: 0.8rem;
         gap: 6px;
+        height: 44px;
     }
     
     .get-agent-button svg {
@@ -615,8 +682,8 @@ body.keyboard-open #root {
     }
     
     .copy-button {
-        width: 36px;
-        height: 36px;
+        width: 44px;
+        height: 44px;
     }
     
     .copy-button svg {
@@ -649,8 +716,8 @@ body.keyboard-open #root {
     }
     
     .send-button {
-        width: 32px;
-        height: 32px;
+        width: 44px;
+        height: 44px;
     }
     
     .send-button svg {

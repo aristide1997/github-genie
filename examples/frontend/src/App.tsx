@@ -31,6 +31,11 @@ function App() {
     setShowAgentModal(false);
   };
 
+  const handleReturnToWelcome = () => {
+    setIsWelcomeState(true);
+    chat.clearMessages();
+  };
+
   return (
     <>
       {isWelcomeState ? (
@@ -46,6 +51,7 @@ function App() {
           messagesRef={chat.messagesRef}
           sendMessage={chat.sendMessage}
           onShowAgentModal={handleShowAgentModal}
+          onReturnToWelcome={handleReturnToWelcome}
         />
       )}
       
